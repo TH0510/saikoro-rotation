@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>図形回転イメージゲーム - ワイド版</title>
+<title>図形回転イメージゲーム - ワイド＆トール版</title>
 <style>
   body {
     font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
@@ -11,33 +11,36 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 40px 20px;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
     color: #333;
     margin: 0;
+    box-sizing: border-box;
   }
   h1 { 
-    font-size: 28px; 
+    font-size: 32px; 
     color: #4a4a4a; 
-    margin-bottom: 20px;
+    margin-bottom: 15px;
   }
   .controls { margin-bottom: 25px; }
   select {
-    padding: 10px 15px;
-    font-size: 16px;
-    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 18px;
+    border-radius: 10px;
     border: 2px solid #ccc;
     cursor: pointer;
     background-color: white;
   }
 
-  /* 全体のレイアウト（広めの設計） */
+  /* 全体のレイアウト（縦横ともにゆったりとした設計） */
   .app-layout {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 30px;
+    gap: 40px;
     width: 100%;
-    max-width: 1400px;
+    max-width: 1500px;
   }
 
   /* ゲームエリア（ボタンと立方体） */
@@ -45,32 +48,32 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 25px;
     background: #fff;
-    padding: 30px 20px;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    padding: 40px 30px;
+    border-radius: 24px;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.06);
   }
 
-  /* 【変更】転がるスペースを大幅に広くしたコンテナ (幅1000px) */
+  /* 【変更】縦方向のスペースを大幅に広げたコンテナ (高さ320px) */
   .scene-container {
     width: 1000px; 
-    height: 220px;
+    height: 320px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
-    border-bottom: 4px solid #e0e0e0; /* 地面を表現 */
+    border-bottom: 5px solid #e0e0e0; /* 地面を表現 */
     overflow: hidden; /* はみ出た部分は隠す */
     background: #fafbfc;
-    border-radius: 12px;
+    border-radius: 16px;
   }
 
   /* 3D空間のセットアップ */
   .scene {
     width: 160px;
     height: 160px;
-    perspective: 800px;
+    perspective: 900px;
   }
   .tilt {
     width: 100%;
@@ -116,11 +119,11 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
-    padding-left: 30px;
+    padding-left: 35px;
     border-left: 2px dashed #ccc;
   }
   .view-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: bold;
     color: #666;
     text-align: center;
@@ -129,28 +132,28 @@
 
   /* ボタンのスタイリング */
   button {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
-    padding: 15px 25px;
+    padding: 20px 30px;
     color: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     cursor: pointer;
-    box-shadow: 0 4px 0px rgba(0,0,0,0.2);
+    box-shadow: 0 5px 0px rgba(0,0,0,0.2);
     transition: all 0.1s;
     white-space: nowrap;
   }
   button:active { 
-    transform: translateY(4px); 
+    transform: translateY(5px); 
     box-shadow: 0 0px 0px rgba(0,0,0,0.2); 
   }
-  .button-left { background-color: #2196F3; box-shadow: 0 4px 0px #1565C0; }
-  .button-right { background-color: #4CAF50; box-shadow: 0 4px 0px #2E7D32; }
+  .button-left { background-color: #2196F3; box-shadow: 0 5px 0px #1565C0; }
+  .button-right { background-color: #4CAF50; box-shadow: 0 5px 0px #2E7D32; }
 
   /* 視点ボタン */
   .btn-view {
     font-size: 16px;
-    padding: 12px 20px;
+    padding: 14px 22px;
     background-color: #90A4AE;
     box-shadow: 0 4px 0px #607D8B;
     color: white;
@@ -160,12 +163,13 @@
     box-shadow: 0 4px 0px #F57C00;
   }
 
-  /* 位置リセットボタン用の装飾 */
   .reset-info {
     margin-top: 15px;
     font-size: 13px;
     color: #777;
     text-align: center;
+    max-width: 140px;
+    line-height: 1.4;
   }
 </style>
 </head>
@@ -219,7 +223,7 @@
     let currentAngle = 0;
     let currentX = 0; 
     const cubeSize = 160; 
-    const maxLimit = 400; // 左右に動ける限界距離（ピクセル）
+    const maxLimit = 400; 
 
     const cube = document.getElementById('cube');
     const tilt = document.getElementById('tilt');
@@ -264,16 +268,15 @@
       currentAngle += 90;
       currentX += cubeSize;
       
-      // 端まで来たら位置を中央に戻してループさせる安全機能
       if (currentX > maxLimit) {
         setTimeout(() => {
-          cube.style.transition = 'none'; // アニメーションを一時オフ
+          cube.style.transition = 'none';
           currentX = 0;
           applyTransform();
           setTimeout(() => {
-            cube.style.transition = 'transform 1.2s cubic-bezier(0.4, 0, 0.2, 1)'; // アニメーションを元に戻す
+            cube.style.transition = 'transform 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
           }, 50);
-        }, 1200); // 移動アニメーションが終わるタイミングで中央へ
+        }, 1200);
       }
       
       applyTransform();
