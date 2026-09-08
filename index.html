@@ -14,13 +14,14 @@
     padding: 40px 20px;
     color: #333;
     margin: 0;
+    overflow-x: hidden;
   }
   h1 { 
     font-size: 28px; 
     color: #4a4a4a; 
     margin-bottom: 20px;
   }
-  .controls { margin-bottom: 40px; }
+  .controls { margin-bottom: 30px; }
   select {
     padding: 10px 15px;
     font-size: 16px;
@@ -29,19 +30,54 @@
     cursor: pointer;
     background-color: white;
   }
-  
+
+  /* 全体のレイアウト */
+  .app-layout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  /* ゲームエリア（ボタンと立方体） */
+  .play-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  }
+
+  /* 転がるスペースを確保するコンテナ */
+  .scene-container {
+    width: 480px; /* 立方体が左右に1個分ずつ動ける幅 */
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-bottom: 4px solid #e0e0e0; /* 地面を表現 */
+    overflow: hidden; /* はみ出た部分は隠す */
+  }
+
   /* 3D空間のセットアップ */
   .scene {
     width: 160px;
     height: 160px;
     perspective: 800px; /* 奥行きの強さ */
-    margin: 30px 0;
   }
   .tilt {
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
-    /* 少し上と右から見下ろす視点にして、立体感を出す */
+    /* 視点切り替え用のアニメーション */
+    transition: transform 0.6s ease;
+    /* 初期状態はななめ視点 */
     transform: rotateX(-15deg) rotateY(-25deg);
   }
   .cube {
@@ -49,8 +85,8 @@
     height: 100%;
     position: relative;
     transform-style: preserve-3d;
-    /* 回転アニメーションの設定 */
-    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* 【変更】回転と移動のアニメーションを「ゆっくり」に設定（1.2秒） */
+    transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .face {
     position: absolute;
@@ -67,7 +103,7 @@
   
   /* 立方体の各面の位置設定 */
   .front {
-    border: 4px solid #78909c; /* 模様のある前面を強調 */
+    border: 4px solid #78909c;
     transform: rotateY(0deg) translateZ(80px);
     background: #fff;
   }
@@ -75,24 +111,36 @@
   .back   { transform: rotateY(180deg) translateZ(80px); }
   .left   { transform: rotateY(-90deg) translateZ(80px); }
   .top    { transform: rotateX(90deg) translateZ(80px); background: #f0f0f0; }
-  .bottom { transform: rotateX(-90deg) translateZ(80px); }
+  .bottom { transform: rotateX(-90deg) translateZ(80px); background: #e0e0e0; }
 
-  /* ボタンエリア */
-  .actions {
+  /* 視点変更ボタンエリア（右側） */
+  .view-controls {
     display: flex;
-    gap: 30px;
-    margin-top: 50px;
+    flex-direction: column;
+    gap: 15px;
+    padding-left: 30px;
+    border-left: 2px dashed #ccc;
   }
+  .view-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #666;
+    text-align: center;
+    margin-bottom: -5px;
+  }
+
+  /* ボタンのスタイリング */
   button {
     font-size: 18px;
     font-weight: bold;
-    padding: 15px 30px;
+    padding: 15px 25px;
     color: white;
     border: none;
     border-radius: 12px;
     cursor: pointer;
     box-shadow: 0 4px 0px rgba(0,0,0,0.2);
     transition: all 0.1s;
+    white-space: nowrap;
   }
   button:active { 
     transform: translateY(4px); 
@@ -100,6 +148,20 @@
   }
   .button-left { background-color: #2196F3; box-shadow: 0 4px 0px #1565C0; }
   .button-right { background-color: #4CAF50; box-shadow: 0 4px 0px #2E7D32; }
+
+  /* 視点ボタン */
+  .btn-view {
+    font-size: 16px;
+    padding: 12px 20px;
+    background-color: #90A4AE;
+    box-shadow: 0 4px 0px #607D8B;
+    color: white;
+  }
+  .btn-view.active {
+    background-color: #FF9800;
+    box-shadow: 0 4px 0px #F57C00;
+  }
+
 </style>
 </head>
 <body>
@@ -116,29 +178,48 @@
     </select>
   </div>
 
-  <div class="scene">
-    <div class="tilt">
-      <div class="cube" id="cube">
-        <div class="face front" id="frontFace"></div>
-        <div class="face back"></div>
-        <div class="face right"></div>
-        <div class="face left"></div>
-        <div class="face top"></div>
-        <div class="face bottom"></div>
+  <div class="app-layout">
+    <!-- メインのゲームエリア -->
+    <div class="play-area">
+      <button class="button-left" onclick="rollLeft()">◀ 左にころがる</button>
+      
+      <div class="scene-container">
+        <div class="scene">
+          <div class="tilt" id="tilt">
+            <div class="cube" id="cube">
+              <div class="face front" id="frontFace"></div>
+              <div class="face back"></div>
+              <div class="face right"></div>
+              <div class="face left"></div>
+              <div class="face top"></div>
+              <div class="face bottom"></div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <div class="actions">
-    <button class="button-left" onclick="rollLeft()">◀ 左にころがる</button>
-    <button class="button-right" onclick="rollRight()">右にころがる ▶</button>
+      <button class="button-right" onclick="rollRight()">右にころがる ▶</button>
+    </div>
+
+    <!-- 右側の視点切り替えボタン -->
+    <div class="view-controls">
+      <div class="view-title">視点きりかえ</div>
+      <button id="btnFront" class="btn-view" onclick="setView('front')">真正面</button>
+      <button id="btnDiagonal" class="btn-view active" onclick="setView('diagonal')">ななめ (立体)</button>
+    </div>
   </div>
 
   <script>
     let currentAngle = 0;
+    let currentX = 0; // 横の移動距離
+    const cubeSize = 160; // 立方体の1辺のサイズ
+
     const cube = document.getElementById('cube');
+    const tilt = document.getElementById('tilt');
     const frontFace = document.getElementById('frontFace');
     const shapeSelect = document.getElementById('shapeSelect');
+    const btnFront = document.getElementById('btnFront');
+    const btnDiagonal = document.getElementById('btnDiagonal');
 
     // SVGで描画する模様のデータ
     const shapes = {
@@ -146,15 +227,11 @@
                   <polygon points="50,15 15,85 85,85" fill="#FF7043" stroke="#D84315" stroke-width="4" stroke-linejoin="round"/>
                  </svg>`,
       bear: `<svg width="120" height="120" viewBox="0 0 100 100">
-               <!-- 耳 -->
                <circle cx="25" cy="25" r="15" fill="#8D6E63"/>
                <circle cx="75" cy="25" r="15" fill="#8D6E63"/>
-               <!-- 顔 -->
                <circle cx="50" cy="55" r="40" fill="#A1887F"/>
-               <!-- 目 -->
                <circle cx="35" cy="45" r="5" fill="#3E2723"/>
                <circle cx="65" cy="45" r="5" fill="#3E2723"/>
-               <!-- 鼻・口周り -->
                <ellipse cx="50" cy="65" rx="18" ry="14" fill="#D7CCC8"/>
                <circle cx="50" cy="60" r="5" fill="#3E2723"/>
                <path d="M 50 65 Q 50 75 42 72 M 50 65 Q 50 75 58 72" fill="none" stroke="#3E2723" stroke-width="2"/>
@@ -174,22 +251,42 @@
       frontFace.innerHTML = shapes[shapeSelect.value];
     }
 
-    // 右に転がる（時計回りに90度回転）
+    // キューブの角度と位置をCSSに適用
+    function applyTransform() {
+      // translateXで横に移動しつつ、rotateZで回転させる
+      cube.style.transform = `translateX(${currentX}px) rotateZ(${currentAngle}deg)`;
+    }
+
+    // 右に転がる
     function rollRight() {
       currentAngle += 90;
-      cube.style.transform = `rotateZ(${currentAngle}deg)`;
+      currentX += cubeSize; // 右に160px移動
+      applyTransform();
     }
 
-    // 左に転がる（反時計回りに90度回転）
+    // 左に転がる
     function rollLeft() {
       currentAngle -= 90;
-      cube.style.transform = `rotateZ(${currentAngle}deg)`;
+      currentX -= cubeSize; // 左に160px移動
+      applyTransform();
     }
 
-    // プルダウン変更時に模様を切り替え
+    // 視点の切り替え
+    function setView(viewType) {
+      if (viewType === 'front') {
+        // 真正面からの視点（奥行きをなくし、真っ直ぐに向ける）
+        tilt.style.transform = 'rotateX(0deg) rotateY(0deg)';
+        btnFront.classList.add('active');
+        btnDiagonal.classList.remove('active');
+      } else if (viewType === 'diagonal') {
+        // ななめからの視点（初期状態）
+        tilt.style.transform = 'rotateX(-15deg) rotateY(-25deg)';
+        btnDiagonal.classList.add('active');
+        btnFront.classList.remove('active');
+      }
+    }
+
     shapeSelect.addEventListener('change', updateShape);
-    
-    // 初期表示
     updateShape();
   </script>
 </body>
