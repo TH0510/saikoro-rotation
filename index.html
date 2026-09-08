@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>図形回転イメージゲーム</title>
+<title>図形回転イメージゲーム - ワイド版</title>
 <style>
   body {
     font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
@@ -14,14 +14,13 @@
     padding: 40px 20px;
     color: #333;
     margin: 0;
-    overflow-x: hidden;
   }
   h1 { 
     font-size: 28px; 
     color: #4a4a4a; 
     margin-bottom: 20px;
   }
-  .controls { margin-bottom: 30px; }
+  .controls { margin-bottom: 25px; }
   select {
     padding: 10px 15px;
     font-size: 16px;
@@ -31,14 +30,14 @@
     background-color: white;
   }
 
-  /* 全体のレイアウト */
+  /* 全体のレイアウト（広めの設計） */
   .app-layout {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 30px;
     width: 100%;
-    max-width: 1100px;
+    max-width: 1400px;
   }
 
   /* ゲームエリア（ボタンと立方体） */
@@ -48,36 +47,36 @@
     justify-content: center;
     gap: 20px;
     background: #fff;
-    padding: 20px;
+    padding: 30px 20px;
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
   }
 
-  /* 転がるスペースを確保するコンテナ */
+  /* 【変更】転がるスペースを大幅に広くしたコンテナ (幅1000px) */
   .scene-container {
-    width: 480px; /* 立方体が左右に1個分ずつ動ける幅 */
-    height: 200px;
+    width: 1000px; 
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     border-bottom: 4px solid #e0e0e0; /* 地面を表現 */
     overflow: hidden; /* はみ出た部分は隠す */
+    background: #fafbfc;
+    border-radius: 12px;
   }
 
   /* 3D空間のセットアップ */
   .scene {
     width: 160px;
     height: 160px;
-    perspective: 800px; /* 奥行きの強さ */
+    perspective: 800px;
   }
   .tilt {
     width: 100%;
     height: 100%;
     transform-style: preserve-3d;
-    /* 視点切り替え用のアニメーション */
     transition: transform 0.6s ease;
-    /* 初期状態はななめ視点 */
     transform: rotateX(-15deg) rotateY(-25deg);
   }
   .cube {
@@ -85,7 +84,6 @@
     height: 100%;
     position: relative;
     transform-style: preserve-3d;
-    /* 【変更】回転と移動のアニメーションを「ゆっくり」に設定（1.2秒） */
     transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .face {
@@ -162,6 +160,13 @@
     box-shadow: 0 4px 0px #F57C00;
   }
 
+  /* 位置リセットボタン用の装飾 */
+  .reset-info {
+    margin-top: 15px;
+    font-size: 13px;
+    color: #777;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -206,13 +211,15 @@
       <div class="view-title">視点きりかえ</div>
       <button id="btnFront" class="btn-view" onclick="setView('front')">真正面</button>
       <button id="btnDiagonal" class="btn-view active" onclick="setView('diagonal')">ななめ (立体)</button>
+      <div class="reset-info">※端まで行くと自動で中央に戻ります</div>
     </div>
   </div>
 
   <script>
     let currentAngle = 0;
-    let currentX = 0; // 横の移動距離
-    const cubeSize = 160; // 立方体の1辺のサイズ
+    let currentX = 0; 
+    const cubeSize = 160; 
+    const maxLimit = 400; // 左右に動ける限界距離（ピクセル）
 
     const cube = document.getElementById('cube');
     const tilt = document.getElementById('tilt');
@@ -221,7 +228,6 @@
     const btnFront = document.getElementById('btnFront');
     const btnDiagonal = document.getElementById('btnDiagonal');
 
-    // SVGで描画する模様のデータ
     const shapes = {
       triangle: `<svg width="120" height="120" viewBox="0 0 100 100">
                   <polygon points="50,15 15,85 85,85" fill="#FF7043" stroke="#D84315" stroke-width="4" stroke-linejoin="round"/>
@@ -246,40 +252,57 @@
           </svg>`
     };
 
-    // 模様を更新する関数
     function updateShape() {
       frontFace.innerHTML = shapes[shapeSelect.value];
     }
 
-    // キューブの角度と位置をCSSに適用
     function applyTransform() {
-      // translateXで横に移動しつつ、rotateZで回転させる
       cube.style.transform = `translateX(${currentX}px) rotateZ(${currentAngle}deg)`;
     }
 
-    // 右に転がる
     function rollRight() {
       currentAngle += 90;
-      currentX += cubeSize; // 右に160px移動
+      currentX += cubeSize;
+      
+      // 端まで来たら位置を中央に戻してループさせる安全機能
+      if (currentX > maxLimit) {
+        setTimeout(() => {
+          cube.style.transition = 'none'; // アニメーションを一時オフ
+          currentX = 0;
+          applyTransform();
+          setTimeout(() => {
+            cube.style.transition = 'transform 1.2s cubic-bezier(0.4, 0, 0.2, 1)'; // アニメーションを元に戻す
+          }, 50);
+        }, 1200); // 移動アニメーションが終わるタイミングで中央へ
+      }
+      
       applyTransform();
     }
 
-    // 左に転がる
     function rollLeft() {
       currentAngle -= 90;
-      currentX -= cubeSize; // 左に160px移動
+      currentX -= cubeSize;
+      
+      if (currentX < -maxLimit) {
+        setTimeout(() => {
+          cube.style.transition = 'none';
+          currentX = 0;
+          applyTransform();
+          setTimeout(() => {
+            cube.style.transition = 'transform 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+          }, 50);
+        }, 1200);
+      }
+      
       applyTransform();
     }
 
-    // 視点の切り替え
     function setView(viewType) {
       if (viewType === 'front') {
-        // 真正面からの視点（奥行きをなくし、真っ直ぐに向ける）
         tilt.style.transform = 'rotateX(0deg) rotateY(0deg)';
         btnFront.classList.add('active');
         btnDiagonal.classList.remove('active');
       } else if (viewType === 'diagonal') {
-        // ななめからの視点（初期状態）
         tilt.style.transform = 'rotateX(-15deg) rotateY(-25deg)';
         btnDiagonal.classList.add('active');
         btnFront.classList.remove('active');
