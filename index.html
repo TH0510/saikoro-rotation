@@ -37,31 +37,36 @@
   .draw-panel {
     display: none;
     background: white;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    padding: 25px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     margin-bottom: 20px;
     text-align: center;
     position: absolute;
     z-index: 10;
-    top: 100px;
+    top: 80px;
   }
   .draw-panel.active {
     display: block;
+  }
+  .draw-panel h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 20px;
+    color: #444;
   }
   canvas {
     border: 3px dashed #bbb;
     background: #fff;
     cursor: crosshair;
-    border-radius: 8px;
+    border-radius: 12px;
     display: block;
-    margin: 10px auto;
+    margin: 0 auto 15px auto;
   }
   .draw-tools {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 15px;
   }
 
   /* 全体のレイアウト */
@@ -112,7 +117,6 @@
     height: 100%;
     transform-style: preserve-3d;
     transition: transform 0.6s ease;
-    /* デフォルトを真正面に設定 */
     transform: rotateX(0deg) rotateY(0deg);
   }
   .cube {
@@ -215,17 +219,18 @@
       <option value="triangle">さんかく</option>
       <option value="arrow">上向き矢印</option>
       <option value="f">アルファベット「F」</option>
-      <option value="draw">🎨 お絵描きする...</option>
+      <option value="draw">お絵描き 🎨</option>
     </select>
   </div>
 
   <!-- お絵描き用パネル（ポップアップ） -->
   <div class="draw-panel" id="drawPanel">
-    <h3>画用紙にお絵描き</h3>
-    <canvas id="drawCanvas" width="160" height="160"></canvas>
+    <h3>お絵描きキャンバス</h3>
+    <!-- 【変更】キャンバスのサイズを大きくしました (300×300) -->
+    <canvas id="drawCanvas" width="300" height="300"></canvas>
     <div class="draw-tools">
-      <button onclick="clearCanvas()" style="background-color: #E53935; box-shadow: 0 4px 0px #B71C1C; font-size:14px; padding:8px 15px;">消す</button>
-      <button onclick="applyDrawing()" style="background-color: #43A047; box-shadow: 0 4px 0px #1B5E20; font-size:14px; padding:8px 15px;">確定する！</button>
+      <button onclick="clearCanvas()" style="background-color: #E53935; box-shadow: 0 4px 0px #B71C1C; font-size:16px; padding:10px 20px;">けす</button>
+      <button onclick="applyDrawing()" style="background-color: #43A047; box-shadow: 0 4px 0px #1B5E20; font-size:16px; padding:10px 20px;">これで決まり！</button>
     </div>
   </div>
 
@@ -253,7 +258,6 @@
 
     <div class="view-controls">
       <div class="view-title">視点きりかえ</div>
-      <!-- デフォルトを真正面に -->
       <button id="btnFront" class="btn-view active" onclick="setView('front')">真正面</button>
       <button id="btnDiagonal" class="btn-view" onclick="setView('diagonal')">ななめ (立体)</button>
       <div class="reset-info">※端まで行くと自動で中央に戻ります</div>
@@ -276,33 +280,68 @@
     const canvas = document.getElementById('drawCanvas');
     const ctx = canvas.getContext('2d');
 
-    // お絵描き用の設定
+    // お絵描き用の設定（太めのペンに変更）
     let isDrawing = false;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 10;
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#333';
 
+    // 画面上の座標とキャンバス内の解像度を合わせるための計算
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
     canvas.addEventListener('mousedown', (e) => {
       isDrawing = true;
-      const rect = canvas.getBoundingClientRect();
+      const pos = getMousePos(e);
       ctx.beginPath();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.moveTo(pos.x, pos.y);
     });
     canvas.addEventListener('mousemove', (e) => {
       if (!isDrawing) return;
-      const rect = canvas.getBoundingClientRect();
-      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      const pos = getMousePos(e);
+      ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     });
     canvas.addEventListener('mouseup', () => isDrawing = false);
     canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+    // タッチ操作のサポート（スマホやタブレット用）
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const pos = {
+        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+        y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+      };
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const pos = {
+        x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+        y: (touch.clientY - rect.top) * (canvas.height / rect.height)
+      };
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    });
+    canvas.addEventListener('touchend', () => isDrawing = false);
 
     function clearCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
     function applyDrawing() {
-      // キャンバスの絵を画像データ(DataURL)にして立方体の前面の背景に設定する
       const dataURL = canvas.toDataURL();
       frontFace.innerHTML = '';
       frontFace.style.backgroundImage = `url(${dataURL})`;
@@ -394,8 +433,6 @@
     }
 
     shapeSelect.addEventListener('change', updateShape);
-    
-    // 初期設定の適用（クマの顔＆真正面）
     updateShape();
   </script>
 </body>
