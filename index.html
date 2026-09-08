@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>図形回転イメージゲーム</title>
+<style>
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    background-color: #f4f7f6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    color: #333;
+    margin: 0;
+  }
+  h1 { 
+    font-size: 28px; 
+    color: #4a4a4a; 
+    margin-bottom: 20px;
+  }
+  .controls { margin-bottom: 40px; }
+  select {
+    padding: 10px 15px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 2px solid #ccc;
+    cursor: pointer;
+    background-color: white;
+  }
+  
+  /* 3D空間のセットアップ */
+  .scene {
+    width: 160px;
+    height: 160px;
+    perspective: 800px; /* 奥行きの強さ */
+    margin: 30px 0;
+  }
+  .tilt {
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    /* 少し上と右から見下ろす視点にして、立体感を出す */
+    transform: rotateX(-15deg) rotateY(-25deg);
+  }
+  .cube {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    /* 回転アニメーションの設定 */
+    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  .face {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #ccc;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+  }
+  
+  /* 立方体の各面の位置設定 */
+  .front {
+    border: 4px solid #78909c; /* 模様のある前面を強調 */
+    transform: rotateY(0deg) translateZ(80px);
+    background: #fff;
+  }
+  .right  { transform: rotateY(90deg) translateZ(80px); }
+  .back   { transform: rotateY(180deg) translateZ(80px); }
+  .left   { transform: rotateY(-90deg) translateZ(80px); }
+  .top    { transform: rotateX(90deg) translateZ(80px); background: #f0f0f0; }
+  .bottom { transform: rotateX(-90deg) translateZ(80px); }
+
+  /* ボタンエリア */
+  .actions {
+    display: flex;
+    gap: 30px;
+    margin-top: 50px;
+  }
+  button {
+    font-size: 18px;
+    font-weight: bold;
+    padding: 15px 30px;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 0px rgba(0,0,0,0.2);
+    transition: all 0.1s;
+  }
+  button:active { 
+    transform: translateY(4px); 
+    box-shadow: 0 0px 0px rgba(0,0,0,0.2); 
+  }
+  .button-left { background-color: #2196F3; box-shadow: 0 4px 0px #1565C0; }
+  .button-right { background-color: #4CAF50; box-shadow: 0 4px 0px #2E7D32; }
+</style>
+</head>
+<body>
+
+  <h1>🎲 図形の回転イメージゲーム</h1>
+  
+  <div class="controls">
+    <label for="shapeSelect"><b>前面の模様：</b></label>
+    <select id="shapeSelect">
+      <option value="triangle">さんかく</option>
+      <option value="bear">クマの顔</option>
+      <option value="arrow">上向き矢印</option>
+      <option value="f">アルファベット「F」</option>
+    </select>
+  </div>
+
+  <div class="scene">
+    <div class="tilt">
+      <div class="cube" id="cube">
+        <div class="face front" id="frontFace"></div>
+        <div class="face back"></div>
+        <div class="face right"></div>
+        <div class="face left"></div>
+        <div class="face top"></div>
+        <div class="face bottom"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="button-left" onclick="rollLeft()">◀ 左にころがる</button>
+    <button class="button-right" onclick="rollRight()">右にころがる ▶</button>
+  </div>
+
+  <script>
+    let currentAngle = 0;
+    const cube = document.getElementById('cube');
+    const frontFace = document.getElementById('frontFace');
+    const shapeSelect = document.getElementById('shapeSelect');
+
+    // SVGで描画する模様のデータ
+    const shapes = {
+      triangle: `<svg width="120" height="120" viewBox="0 0 100 100">
+                  <polygon points="50,15 15,85 85,85" fill="#FF7043" stroke="#D84315" stroke-width="4" stroke-linejoin="round"/>
+                 </svg>`,
+      bear: `<svg width="120" height="120" viewBox="0 0 100 100">
+               <!-- 耳 -->
+               <circle cx="25" cy="25" r="15" fill="#8D6E63"/>
+               <circle cx="75" cy="25" r="15" fill="#8D6E63"/>
+               <!-- 顔 -->
+               <circle cx="50" cy="55" r="40" fill="#A1887F"/>
+               <!-- 目 -->
+               <circle cx="35" cy="45" r="5" fill="#3E2723"/>
+               <circle cx="65" cy="45" r="5" fill="#3E2723"/>
+               <!-- 鼻・口周り -->
+               <ellipse cx="50" cy="65" rx="18" ry="14" fill="#D7CCC8"/>
+               <circle cx="50" cy="60" r="5" fill="#3E2723"/>
+               <path d="M 50 65 Q 50 75 42 72 M 50 65 Q 50 75 58 72" fill="none" stroke="#3E2723" stroke-width="2"/>
+             </svg>`,
+      arrow: `<svg width="120" height="120" viewBox="0 0 100 100">
+                <polygon points="50,15 85,50 65,50 65,85 35,85 35,50 15,50" fill="#42A5F5" stroke="#1E88E5" stroke-width="4" stroke-linejoin="round"/>
+              </svg>`,
+      f: `<svg width="120" height="120" viewBox="0 0 100 100">
+            <rect x="25" y="15" width="20" height="70" fill="#9C27B0" rx="2"/>
+            <rect x="45" y="15" width="35" height="20" fill="#9C27B0" rx="2"/>
+            <rect x="45" y="45" width="25" height="20" fill="#9C27B0" rx="2"/>
+          </svg>`
+    };
+
+    // 模様を更新する関数
+    function updateShape() {
+      frontFace.innerHTML = shapes[shapeSelect.value];
+    }
+
+    // 右に転がる（時計回りに90度回転）
+    function rollRight() {
+      currentAngle += 90;
+      cube.style.transform = `rotateZ(${currentAngle}deg)`;
+    }
+
+    // 左に転がる（反時計回りに90度回転）
+    function rollLeft() {
+      currentAngle -= 90;
+      cube.style.transform = `rotateZ(${currentAngle}deg)`;
+    }
+
+    // プルダウン変更時に模様を切り替え
+    shapeSelect.addEventListener('change', updateShape);
+    
+    // 初期表示
+    updateShape();
+  </script>
+</body>
+</html>
