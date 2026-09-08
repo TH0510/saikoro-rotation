@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>図形回転イメージゲーム - ワイド＆トール版</title>
+<title>図形回転イメージゲーム - お絵描き対応版</title>
 <style>
   body {
     font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
@@ -23,7 +23,7 @@
     color: #4a4a4a; 
     margin-bottom: 15px;
   }
-  .controls { margin-bottom: 25px; }
+  .controls { margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
   select {
     padding: 12px 20px;
     font-size: 18px;
@@ -33,7 +33,38 @@
     background-color: white;
   }
 
-  /* 全体のレイアウト（縦横ともにゆったりとした設計） */
+  /* お絵描きパネルのモーダル・エリア */
+  .draw-panel {
+    display: none;
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    margin-bottom: 20px;
+    text-align: center;
+    position: absolute;
+    z-index: 10;
+    top: 100px;
+  }
+  .draw-panel.active {
+    display: block;
+  }
+  canvas {
+    border: 3px dashed #bbb;
+    background: #fff;
+    cursor: crosshair;
+    border-radius: 8px;
+    display: block;
+    margin: 10px auto;
+  }
+  .draw-tools {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* 全体のレイアウト */
   .app-layout {
     display: flex;
     align-items: center;
@@ -53,9 +84,10 @@
     padding: 40px 30px;
     border-radius: 24px;
     box-shadow: 0 12px 35px rgba(0,0,0,0.06);
+    position: relative;
   }
 
-  /* 【変更】縦方向のスペースを大幅に広げたコンテナ (高さ320px) */
+  /* スペースコンテナ */
   .scene-container {
     width: 1000px; 
     height: 320px;
@@ -63,8 +95,8 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    border-bottom: 5px solid #e0e0e0; /* 地面を表現 */
-    overflow: hidden; /* はみ出た部分は隠す */
+    border-bottom: 5px solid #e0e0e0;
+    overflow: hidden;
     background: #fafbfc;
     border-radius: 16px;
   }
@@ -80,7 +112,8 @@
     height: 100%;
     transform-style: preserve-3d;
     transition: transform 0.6s ease;
-    transform: rotateX(-15deg) rotateY(-25deg);
+    /* デフォルトを真正面に設定 */
+    transform: rotateX(0deg) rotateY(0deg);
   }
   .cube {
     width: 100%;
@@ -102,7 +135,6 @@
     box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
   }
   
-  /* 立方体の各面の位置設定 */
   .front {
     border: 4px solid #78909c;
     transform: rotateY(0deg) translateZ(80px);
@@ -150,7 +182,6 @@
   .button-left { background-color: #2196F3; box-shadow: 0 5px 0px #1565C0; }
   .button-right { background-color: #4CAF50; box-shadow: 0 5px 0px #2E7D32; }
 
-  /* 視点ボタン */
   .btn-view {
     font-size: 16px;
     padding: 14px 22px;
@@ -180,15 +211,25 @@
   <div class="controls">
     <label for="shapeSelect"><b>前面の模様：</b></label>
     <select id="shapeSelect">
+      <option value="bear" selected>クマの顔</option>
       <option value="triangle">さんかく</option>
-      <option value="bear">クマの顔</option>
       <option value="arrow">上向き矢印</option>
       <option value="f">アルファベット「F」</option>
+      <option value="draw">🎨 お絵描きする...</option>
     </select>
   </div>
 
+  <!-- お絵描き用パネル（ポップアップ） -->
+  <div class="draw-panel" id="drawPanel">
+    <h3>画用紙にお絵描き</h3>
+    <canvas id="drawCanvas" width="160" height="160"></canvas>
+    <div class="draw-tools">
+      <button onclick="clearCanvas()" style="background-color: #E53935; box-shadow: 0 4px 0px #B71C1C; font-size:14px; padding:8px 15px;">消す</button>
+      <button onclick="applyDrawing()" style="background-color: #43A047; box-shadow: 0 4px 0px #1B5E20; font-size:14px; padding:8px 15px;">確定する！</button>
+    </div>
+  </div>
+
   <div class="app-layout">
-    <!-- メインのゲームエリア -->
     <div class="play-area">
       <button class="button-left" onclick="rollLeft()">◀ 左にころがる</button>
       
@@ -210,11 +251,11 @@
       <button class="button-right" onclick="rollRight()">右にころがる ▶</button>
     </div>
 
-    <!-- 右側の視点切り替えボタン -->
     <div class="view-controls">
       <div class="view-title">視点きりかえ</div>
-      <button id="btnFront" class="btn-view" onclick="setView('front')">真正面</button>
-      <button id="btnDiagonal" class="btn-view active" onclick="setView('diagonal')">ななめ (立体)</button>
+      <!-- デフォルトを真正面に -->
+      <button id="btnFront" class="btn-view active" onclick="setView('front')">真正面</button>
+      <button id="btnDiagonal" class="btn-view" onclick="setView('diagonal')">ななめ (立体)</button>
       <div class="reset-info">※端まで行くと自動で中央に戻ります</div>
     </div>
   </div>
@@ -231,11 +272,45 @@
     const shapeSelect = document.getElementById('shapeSelect');
     const btnFront = document.getElementById('btnFront');
     const btnDiagonal = document.getElementById('btnDiagonal');
+    const drawPanel = document.getElementById('drawPanel');
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // お絵描き用の設定
+    let isDrawing = false;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#333';
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+    });
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseleave', () => isDrawing = false);
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function applyDrawing() {
+      // キャンバスの絵を画像データ(DataURL)にして立方体の前面の背景に設定する
+      const dataURL = canvas.toDataURL();
+      frontFace.innerHTML = '';
+      frontFace.style.backgroundImage = `url(${dataURL})`;
+      frontFace.style.backgroundSize = 'cover';
+      drawPanel.classList.remove('active');
+    }
 
     const shapes = {
-      triangle: `<svg width="120" height="120" viewBox="0 0 100 100">
-                  <polygon points="50,15 15,85 85,85" fill="#FF7043" stroke="#D84315" stroke-width="4" stroke-linejoin="round"/>
-                 </svg>`,
       bear: `<svg width="120" height="120" viewBox="0 0 100 100">
                <circle cx="25" cy="25" r="15" fill="#8D6E63"/>
                <circle cx="75" cy="25" r="15" fill="#8D6E63"/>
@@ -246,6 +321,9 @@
                <circle cx="50" cy="60" r="5" fill="#3E2723"/>
                <path d="M 50 65 Q 50 75 42 72 M 50 65 Q 50 75 58 72" fill="none" stroke="#3E2723" stroke-width="2"/>
              </svg>`,
+      triangle: `<svg width="120" height="120" viewBox="0 0 100 100">
+                  <polygon points="50,15 15,85 85,85" fill="#FF7043" stroke="#D84315" stroke-width="4" stroke-linejoin="round"/>
+                 </svg>`,
       arrow: `<svg width="120" height="120" viewBox="0 0 100 100">
                 <polygon points="50,15 85,50 65,50 65,85 35,85 35,50 15,50" fill="#42A5F5" stroke="#1E88E5" stroke-width="4" stroke-linejoin="round"/>
               </svg>`,
@@ -257,7 +335,14 @@
     };
 
     function updateShape() {
-      frontFace.innerHTML = shapes[shapeSelect.value];
+      const val = shapeSelect.value;
+      if (val === 'draw') {
+        drawPanel.classList.add('active');
+      } else {
+        drawPanel.classList.remove('active');
+        frontFace.style.backgroundImage = 'none';
+        frontFace.innerHTML = shapes[val];
+      }
     }
 
     function applyTransform() {
@@ -267,7 +352,6 @@
     function rollRight() {
       currentAngle += 90;
       currentX += cubeSize;
-      
       if (currentX > maxLimit) {
         setTimeout(() => {
           cube.style.transition = 'none';
@@ -278,14 +362,12 @@
           }, 50);
         }, 1200);
       }
-      
       applyTransform();
     }
 
     function rollLeft() {
       currentAngle -= 90;
       currentX -= cubeSize;
-      
       if (currentX < -maxLimit) {
         setTimeout(() => {
           cube.style.transition = 'none';
@@ -296,7 +378,6 @@
           }, 50);
         }, 1200);
       }
-      
       applyTransform();
     }
 
@@ -313,6 +394,8 @@
     }
 
     shapeSelect.addEventListener('change', updateShape);
+    
+    // 初期設定の適用（クマの顔＆真正面）
     updateShape();
   </script>
 </body>
